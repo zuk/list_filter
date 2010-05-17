@@ -74,6 +74,10 @@
 # Have a look at the #filter_by docs for details on the kinds of options
 # you can specify.
 class ListFilter
+  # Adds sql constraints that will always be applied to the filter query, regardless of filter values.
+  # Example: "group = 'foo'". This constraint will be appended to the rest of the filter query using AND.
+  attr_accessor :constraints
+
   # Initialize the ListFilter. Needs access to the current controller, so
   # inside a controller action initialization will also look like this:
   #
@@ -85,6 +89,7 @@ class ListFilter
     @controller = controller
 
     @sql = ''
+    @constraints = ''
     @values = []
     @values_hash = {}
   end
@@ -125,8 +130,11 @@ class ListFilter
       end
     end
 
-    if val
+    unless sql.blank?
       @sql << " #{'AND' unless @sql.blank?} #{sql}"
+      val = '0' if val.blank? 
+    end
+    unless val.blank?
       @values << val
       @values_hash[field] = val
     end
@@ -137,7 +145,9 @@ class ListFilter
   #   Book.find(:all, :conditions => @filter_by.conditions)
   def conditions
     return "1" if no_conditions?
-    ["(#{@sql})"] + @values
+    sql = "(#{@sql})"
+    sql << "AND (#{@constraints})" unless @constraints.blank?
+    ["(#{sql})"] + @values
   end
 
   # Returns true if the filter has no conditions (i.e. the generated SQL
