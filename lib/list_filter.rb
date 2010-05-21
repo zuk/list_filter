@@ -106,10 +106,9 @@ class ListFilter
   # [:dont_retain_filter]   If true, filter settings will not be stored in the session. False by default.
   # [:default]  The default value to use for this field if the user does not specify anything. nil by default.
   def filter_by(field, options = {})
-    sql = options[:sql] || "#{field} = ?"
     session = @controller.session
     params = @controller.params
-
+    
     path_key = @controller.url_for(:controller => @controller.controller_name, :action => params[:action], :only_path => true)
 
     val = session[:filter_by][field] && session[:filter_by][field][path_key] || options[:default]
@@ -130,13 +129,23 @@ class ListFilter
       end
     end
 
-    unless sql.blank?
-      @sql << " #{'AND' unless @sql.blank?} #{sql}"
-      val = '0' if val.blank? 
-    end
-    unless val.blank?
+    condition = nil
+
+    if options[:sql]
+      condition = options[:sql]
+      if condition.include?('?')
+        @values << val
+        @values_hash[field] = val
+      end
+    elsif !val.nil?
+      condition = "#{field} = ?"
       @values << val
       @values_hash[field] = val
+    end
+
+    if condition
+      @sql << " AND " unless @sql.blank?
+      @sql << condition
     end
   end
 
